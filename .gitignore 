@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.so
+*.pyc
 
 # PyCharm project files
 .idea/
