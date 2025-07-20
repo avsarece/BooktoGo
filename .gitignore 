@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+
+# PyCharm project files
+.idea/
+
+# VSCode workspace files (if you ever switch)
+.vscode/
+
+# Virtual environment folders
+venv/
+env/
+ENV/
+.venv/
+
+# macOS system files
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Test result files and coverage reports
+coverage.*
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# MyPy & other Python tooling
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# Output or build files
+*.log
+*.out
+*.tmp
+*.bak
+
+# Compiled C extensions
+*.c
+*.cpp
+
+# Data files - optionally ignore if regenerated
+# Uncomment if you want to exclude book data
+# data/book_data.csv
+# data/book_data.json
