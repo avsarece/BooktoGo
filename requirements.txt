@@ -1,0 +1,8 @@
+streamlit
+scrapy
+qdrant-client
+pandas
+sentence-transformers
+torch
+pathlib
+nltk
