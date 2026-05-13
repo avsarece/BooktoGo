@@ -19,7 +19,7 @@ df = pd.read_csv(csv_file)
 books_list = df["Title"]
 book_cover_url = df['Cover_URL']
 book_url = df['URL']
-st.header('Book Recommender System')
+st.header('BooktoGo')
 
 selected_book = st.selectbox("Select a book:", books_list.unique())
 

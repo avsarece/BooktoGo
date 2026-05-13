@@ -16,10 +16,14 @@ qdrant_client = QdrantClient(
     url=st.secrets["QDRANT_URL"],
     api_key=st.secrets["QDRANT_API_KEY"]
 )
-qdrant_client.recreate_collection(
-    collection_name="book_sentences",
-    vectors_config=VectorParams(size=384, distance=Distance.DOT),
-)
+from qdrant_client.models import VectorParams, Distance
+
+existing = [c.name for c in qdrant_client.get_collections().collections]
+if "book_sentences" not in existing:
+    qdrant_client.create_collection(
+        collection_name="book_sentences",
+        vectors_config=VectorParams(size=384, distance=Distance.DOT),
+    )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 csv_file = BASE_DIR / "data" / "book_data.csv"
@@ -95,16 +99,17 @@ def transform_sentences(csv_file: str, batch_size: int = 64):
     return descp_result, embeddings, upcs_result, genres_result, ratings_result, titles_result, urls_result, cover_urls_result
 
 
-def upload_to_qdrant(descps, embeddings, sentence_upcs, genres, ratings, titles, urls, cover_urls, batch_size=100):
+def upload_to_qdrant(descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls, batch_size=100):
     """Uploads sentence embeddings with associated metadata to a Qdrant vector database."""
 
     points = []
     for idx, (descp, vector, upc, genre, rating, title, url, cover_url) in enumerate(
-            zip(descps, embeddings, sentence_upcs, genres, ratings, titles, urls, cover_urls), start=1):
+            zip(descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls), start=1):
         points.append(PointStruct(
             id=idx,
             vector=vector.tolist(),
             payload={
+                "id": idx,
                 "title": title,
                 "upc": str(upc),
                 "genre": genre,
@@ -125,7 +130,6 @@ def upload_to_qdrant(descps, embeddings, sentence_upcs, genres, ratings, titles,
 
 descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls = transform_sentences(csv_file)
 upload_to_qdrant(descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls)
-
 # Retract first 15 data from collection
 points, next_page = qdrant_client.scroll(
     collection_name="book_sentences",
@@ -157,8 +161,7 @@ def query_to_qdrant(query: list[str]):
     """
 
     embedding = model.encode(query)
-    client = QdrantClient("localhost", port=6333)
-    search_result = client.search(
+    search_result = qdrant_client.search(
         collection_name="book_sentences",
         query_vector=embedding,
         limit=3
