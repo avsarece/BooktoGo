@@ -1,8 +1,9 @@
-streamlit
+streamlit~=1.46.1
 scrapy
-qdrant-client
-pandas
-sentence-transformers
-torch
-pathlib
-nltk
+qdrant-client~=1.14.3
+pandas~=2.3.1
+sentence-transformers~=4.1.0
+torch~=2.7.1
+nltk~=3.9.1
+lyricsgenius~=3.7.0
+python-dotenv~=1.1.1

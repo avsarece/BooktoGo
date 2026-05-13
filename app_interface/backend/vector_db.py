@@ -6,13 +6,17 @@ from qdrant_client.models import VectorParams, Distance
 from qdrant_client.http.models import PointStruct
 import nltk
 from pathlib import Path
+import streamlit as st
 
 TOKENIZER = nltk.data.load('tokenizers/punkt/english.pickle')
 
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
-client = QdrantClient(url="http://localhost:6333")
-client.recreate_collection(
+qdrant_client = QdrantClient(
+    url=st.secrets["QDRANT_URL"],
+    api_key=st.secrets["QDRANT_API_KEY"]
+)
+qdrant_client.recreate_collection(
     collection_name="book_sentences",
     vectors_config=VectorParams(size=384, distance=Distance.DOT),
 )
@@ -112,18 +116,18 @@ def upload_to_qdrant(descps, embeddings, sentence_upcs, genres, ratings, titles,
         ))
 
         if len(points) >= batch_size:
-            client.upsert(collection_name="book_sentences", wait=True, points=points)
+            qdrant_client.upsert(collection_name="book_sentences", wait=True, points=points)
             points = []
 
     if points:
-        client.upsert(collection_name="book_sentences", wait=True, points=points)
+        qdrant_client.upsert(collection_name="book_sentences", wait=True, points=points)
 
 
 descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls = transform_sentences(csv_file)
 upload_to_qdrant(descps, embeddings, upcs, genres, ratings, titles, urls, cover_urls)
 
 # Retract first 15 data from collection
-points, next_page = client.scroll(
+points, next_page = qdrant_client.scroll(
     collection_name="book_sentences",
     limit=15,
     with_payload=True,  # Also include other metadata

@@ -9,14 +9,43 @@ from qdrant_client.http.models import (
     MatchValue
 )
 from pathlib import Path
+import streamlit as st
 
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
-client = QdrantClient(url="http://localhost:6333")
+qdrant_client = QdrantClient(
+    url=st.secrets["QDRANT_URL"],
+    api_key=st.secrets["QDRANT_API_KEY"]
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 csv_file = BASE_DIR / "data" / "book_data.csv"
 csv_file = str(csv_file)
+
+
+def book_to_id(input_song: str) -> str:
+    """Create a dictionary that maps every song title to its corresponding id,
+    and return the id of the book.
+        >>> book_to_id("Viva La Vida")
+
+    """
+    csv_path = csv_file
+    df = pd.read_csv(csv_path, header=0)
+    ids = df["UPC"].fillna("").astype(str)
+
+    dictionary = {}
+    for id in ids:
+        title = (
+            df.loc[df["UPC"] == id, "Title"]
+            .fillna("")
+            .values[0]
+            .strip()
+            .lower()
+        )
+        dictionary[title] = id
+
+    input_song_lower = input_song.strip().lower()
+    return dictionary[input_song_lower]
 
 
 def book_to_upc(csv_file: str, input_book: str) -> str:
@@ -92,7 +121,7 @@ def unweighted_similarity(input_book: str) -> list[dict[str, str | int | float]]
     book_description = book_row["Description"].values[0]
     query_vec = model.encode([book_description])[0].tolist()
 
-    hits = client.search(
+    hits = qdrant_client.search(
         collection_name="book_sentences",
         query_vector=query_vec,
         query_filter=Filter(must_not=[FieldCondition(key="upc", match=MatchValue(value=input_upc))]),
@@ -156,7 +185,7 @@ def find_most_similar(input_book: str) -> list:
     book_description = input_row["Description"].values[0]
     query_vec = model.encode([book_description])[0].tolist()
 
-    hits = client.search(
+    hits = qdrant_client.search(
         collection_name="book_sentences",
         query_vector=query_vec,
         query_filter=Filter(must_not=[FieldCondition(key="upc", match=MatchValue(value=input_upc))]),
@@ -181,3 +210,39 @@ def find_most_similar(input_book: str) -> list:
             })
 
     return sorted(scored_books, key=lambda x: -x['score'])[:3]
+
+
+def query_to_qdrant(book_name: str):
+    """Send a query to qdrant, and print the closest 3 search results to this query.
+    >>> query_to_qdrant("It's Only the Himalayas")
+    >>> query_to_qdrant("Tipping the Velvet")
+    >>> query_to_qdrant("How Music Works")
+    >>> query_to_qdrant("The Most Perfect Thing: Inside (and Outside) a Bird's Egg")
+    >>> query_to_qdrant("Something More Than This")
+    >>> query_to_qdrant("The Wedding Dress")
+    >>> query_to_qdrant("The 10% Entrepreneur: Live Your Startup Dream Without Quitting Your Day Job")
+    """
+    df = pd.read_csv(csv_file, header=0)
+    input_upc = book_to_id(book_name)
+    book_row = df[df["UPC"] == input_upc]
+    book_description = book_row['Description'].values[0]
+    book_genre = book_row['Genre'].values[0]
+    book_rating = book_row['Rating'].values[0]
+
+    embedding = model.encode(book_description)
+    search_result = qdrant_client.search(
+        collection_name="book_sentences",
+        query_vector=embedding,
+        query_filter=Filter(must_not=[FieldCondition(key="upc", match=MatchValue(value=input_upc))]),
+        with_payload=True,
+        limit=30
+    )
+
+    dict = {5: 1, 4: 0.8, 3: 0.6, 2: 0.4, 1: 0.2, 0: 0}
+    rating_score = 0.25 * dict[book_rating]
+    scored_songs = [
+        {**hit.payload,
+         'score': 0.6 * hit.score + 0.15 * genre_similarity(book_genre, hit.payload['genre']) + rating_score}
+        for hit in search_result
+    ]
+    return sorted(scored_songs, key=lambda x: -x['score'])[:3]
